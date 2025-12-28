@@ -53,6 +53,16 @@ class CalculateCartTotalUseCase(
     }
 
     /**
+     * Execute the use case with a pre-loaded Cart
+     * Use this when you already have the Cart to avoid race conditions
+     * @param cart The Cart to calculate totals for
+     * @return CartTotalInfo containing the calculated totals
+     */
+    operator fun invoke(cart: Cart): CartTotalInfo {
+        return calculateTotal(cart)
+    }
+
+    /**
      * Calculate total from cart items using Long arithmetic for precision
      * Logic: sum of (coffee basePrice + options extra) * quantity for each item
      */

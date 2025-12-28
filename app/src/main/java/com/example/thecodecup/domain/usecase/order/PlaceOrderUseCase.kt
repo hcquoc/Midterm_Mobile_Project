@@ -79,7 +79,7 @@ class PlaceOrderUseCase(
             // Step 5: Clear the cart
             cartRepository.clearCart()
 
-            // Step 6: Calculate loyalty points (1 point per 1000 VND)
+            // Step 6: Calculate loyalty points (1 point per 1000 currency units)
             val pointsEarned = calculateLoyaltyPoints(totalPrice)
 
             // Step 7: Add points to user
@@ -87,8 +87,10 @@ class PlaceOrderUseCase(
                 userRepository.addRewardPoints(pointsEarned)
             }
 
-            // Step 8: Add 1 loyalty stamp per order (clamped at max 8)
-            userRepository.addLoyaltyStamp()
+            // Step 8: Add loyalty stamp for each item purchased
+            cart.items.forEach { _ ->
+                userRepository.addLoyaltyStamp()
+            }
 
             // Return success with order and points earned
             DomainResult.Success(
@@ -110,13 +112,14 @@ class PlaceOrderUseCase(
 
     /**
      * Calculate loyalty points based on total price
-     * Formula: 1 point per 1000 VND (rounded down)
+     * Formula: 10 points per dollar spent (rounded down)
+     * This makes earning 100 points (free coffee) require ~$10 in purchases
      *
-     * @param totalPrice The total order price in VND
+     * @param totalPrice The total order price
      * @return Number of points earned
      */
     private fun calculateLoyaltyPoints(totalPrice: Double): Int {
-        return (totalPrice / 1000).toInt()
+        return (totalPrice * 10).toInt()
     }
 }
 

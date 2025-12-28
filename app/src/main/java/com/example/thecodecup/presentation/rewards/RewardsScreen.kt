@@ -52,7 +52,7 @@ fun RewardsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Handle redeem points success
+    // Handle redeem success
     LaunchedEffect(uiState.redeemSuccess) {
         if (uiState.redeemSuccess) {
             snackbarHostState.showSnackbar(
@@ -60,17 +60,6 @@ fun RewardsScreen(
                 duration = SnackbarDuration.Short
             )
             viewModel.onEvent(RewardsUiEvent.ConsumeRedeemSuccess)
-        }
-    }
-
-    // Handle redeem stamps success
-    LaunchedEffect(uiState.redeemStampsSuccess) {
-        if (uiState.redeemStampsSuccess) {
-            snackbarHostState.showSnackbar(
-                message = "🎉 Loyalty Card Redeemed! Enjoy your free coffee!",
-                duration = SnackbarDuration.Short
-            )
-            viewModel.onEvent(RewardsUiEvent.ConsumeRedeemStampsSuccess)
         }
     }
 
@@ -91,7 +80,7 @@ fun RewardsScreen(
             SnackbarHost(hostState = snackbarHostState) { data ->
                 Snackbar(
                     snackbarData = data,
-                    containerColor = if (uiState.redeemSuccess || uiState.redeemStampsSuccess) AppColors.Success else AppColors.Error,
+                    containerColor = if (uiState.redeemSuccess) AppColors.Success else AppColors.Error,
                     contentColor = Color.White,
                     shape = RoundedCornerShape(12.dp)
                 )
@@ -132,11 +121,7 @@ fun RewardsScreen(
                     onClick = {
                         viewModel.onEvent(RewardsUiEvent.LoyaltyCardClicked)
                         onLoyaltyCardClick()
-                    },
-                    onRedeemClick = {
-                        viewModel.onEvent(RewardsUiEvent.RedeemStamps)
-                    },
-                    isRedeeming = uiState.isRedeeming
+                    }
                 )
             }
 

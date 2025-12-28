@@ -481,15 +481,15 @@ fun BottomNavigationBar(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        shape = RoundedCornerShape(24.dp),
+            .padding(horizontal = 24.dp, vertical = 4.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = AppColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 6.dp),
+                .padding(vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             BottomNavItem(
@@ -519,13 +519,13 @@ fun BottomNavItem(
 ) {
     IconButton(
         onClick = onClick,
-        modifier = Modifier.size(40.dp)
+        modifier = Modifier.size(32.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = if (isSelected) AppColors.Secondary else AppColors.TextTertiary,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(20.dp)
         )
     }
 }

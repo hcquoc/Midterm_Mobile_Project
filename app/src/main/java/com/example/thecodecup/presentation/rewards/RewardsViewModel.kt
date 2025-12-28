@@ -171,21 +171,8 @@ class RewardsViewModel(
         }
     }
 
-    private fun consumeRedeemSuccess() {
-        _uiState.update { it.copy(redeemSuccess = false) }
-    }
-
-    private fun consumeRedeemStampsSuccess() {
-        _uiState.update { it.copy(redeemStampsSuccess = false) }
-    }
-
-    private fun consumeRedeemError() {
-        _uiState.update { it.copy(redeemError = null) }
-    }
-
     /**
-     * Redeem loyalty stamps when user has collected 8 stamps
-     * Resets stamps to 0 and triggers success event
+     * Redeem loyalty stamps when user has 8 stamps
      */
     private fun redeemStamps() {
         viewModelScope.launch {
@@ -214,18 +201,32 @@ class RewardsViewModel(
                     state.copy(
                         isRedeeming = false,
                         redeemStampsSuccess = true,
-                        loyaltyStamps = 0
+                        loyaltyStamps = 0,
+                        loyaltyProgress = 0f,
+                        loyaltyStampsDisplay = "0/$maxStamps"
                     )
                 }
             } catch (e: Exception) {
                 _uiState.update { state ->
                     state.copy(
                         isRedeeming = false,
-                        redeemError = e.message ?: "Failed to redeem stamps"
+                        redeemError = e.message ?: "Failed to redeem"
                     )
                 }
             }
         }
+    }
+
+    private fun consumeRedeemStampsSuccess() {
+        _uiState.update { it.copy(redeemStampsSuccess = false) }
+    }
+
+    private fun consumeRedeemSuccess() {
+        _uiState.update { it.copy(redeemSuccess = false) }
+    }
+
+    private fun consumeRedeemError() {
+        _uiState.update { it.copy(redeemError = null) }
     }
 
     private fun clearError() {

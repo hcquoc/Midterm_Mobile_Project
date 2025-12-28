@@ -67,14 +67,17 @@ class CartViewModel(
                 when (result) {
                     is DomainResult.Success -> {
                         val cart = result.data
+                        // Calculate total using the same cart to avoid race conditions
+                        val totalInfo = calculateCartTotalUseCase(cart)
                         _uiState.update { state ->
                             state.copy(
                                 cart = cart,
+                                subtotal = totalInfo.subtotal,
+                                deliveryFee = totalInfo.deliveryFee,
+                                totalPrice = totalInfo.total,
                                 isLoading = false
                             )
                         }
-                        // Also calculate total
-                        calculateTotal()
                     }
                     is DomainResult.Error -> {
                         _uiState.update { state ->
@@ -89,24 +92,6 @@ class CartViewModel(
         }
     }
 
-    private fun calculateTotal() {
-        viewModelScope.launch {
-            when (val result = calculateCartTotalUseCase()) {
-                is DomainResult.Success -> {
-                    _uiState.update { state ->
-                        state.copy(
-                            subtotal = result.data.subtotal,
-                            deliveryFee = result.data.deliveryFee,
-                            totalPrice = result.data.total
-                        )
-                    }
-                }
-                is DomainResult.Error -> {
-                    // Ignore calculation errors, cart will show raw total
-                }
-            }
-        }
-    }
 
     private fun removeItem(itemId: Int) {
         viewModelScope.launch {

@@ -8,10 +8,12 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.thecodecup.data.local.dao.CartDao
 import com.example.thecodecup.data.local.dao.CoffeeDao
 import com.example.thecodecup.data.local.dao.OrderDao
+import com.example.thecodecup.data.local.dao.UserDao
 import com.example.thecodecup.data.local.entity.CartItemEntity
 import com.example.thecodecup.data.local.entity.CoffeeEntity
 import com.example.thecodecup.data.local.entity.OrderEntity
 import com.example.thecodecup.data.local.entity.OrderItemEntity
+import com.example.thecodecup.data.local.entity.UserEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -24,9 +26,10 @@ import kotlinx.coroutines.launch
         CoffeeEntity::class,
         CartItemEntity::class,
         OrderEntity::class,
-        OrderItemEntity::class
+        OrderItemEntity::class,
+        UserEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -34,6 +37,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun coffeeDao(): CoffeeDao
     abstract fun cartDao(): CartDao
     abstract fun orderDao(): OrderDao
+    abstract fun userDao(): UserDao
 
     companion object {
         private const val DATABASE_NAME = "the_code_cup_database"
