@@ -1,9 +1,11 @@
 package com.example.thecodecup.presentation.rewards
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.thecodecup.di.ServiceLocator
 import com.example.thecodecup.domain.common.DomainResult
+import com.example.thecodecup.domain.model.Reward
 import com.example.thecodecup.domain.repository.RewardRepository
 import com.example.thecodecup.domain.repository.UserRepository
 import com.example.thecodecup.domain.usecase.user.GetCurrentUserUseCase
@@ -15,13 +17,17 @@ import kotlinx.coroutines.launch
 
 /**
  * ViewModel for Rewards Screen
- * Uses UseCases instead of Repositories directly
+ * Handles loyalty points, stamps, and reward redemption
  */
 class RewardsViewModel(
     private val getCurrentUserUseCase: GetCurrentUserUseCase,
     private val userRepository: UserRepository = ServiceLocator.provideUserRepository(),
     private val rewardRepository: RewardRepository = ServiceLocator.provideRewardRepository()
 ) : ViewModel() {
+
+    companion object {
+        private const val TAG = "RewardsViewModel"
+    }
 
     private val _uiState = MutableStateFlow(RewardsUiState())
     val uiState: StateFlow<RewardsUiState> = _uiState.asStateFlow()
@@ -36,11 +42,16 @@ class RewardsViewModel(
             is RewardsUiEvent.ClearError -> clearError()
             is RewardsUiEvent.LoyaltyCardClicked -> { /* Handled by screen */ }
             is RewardsUiEvent.RedeemClicked -> { /* Handled by screen */ }
-            is RewardsUiEvent.RedeemFreeCoffee -> redeemFreeCoffee()
             is RewardsUiEvent.RedeemStamps -> redeemStamps()
             is RewardsUiEvent.ConsumeRedeemSuccess -> consumeRedeemSuccess()
             is RewardsUiEvent.ConsumeRedeemStampsSuccess -> consumeRedeemStampsSuccess()
             is RewardsUiEvent.ConsumeRedeemError -> consumeRedeemError()
+
+            // New reward-based redemption events
+            is RewardsUiEvent.SelectRewardToRedeem -> selectRewardToRedeem(event.reward)
+            is RewardsUiEvent.ConfirmRedemption -> confirmRedemption()
+            is RewardsUiEvent.CancelRedemption -> cancelRedemption()
+            is RewardsUiEvent.RedeemSpecificReward -> redeemSpecificReward(event.reward)
         }
     }
 
@@ -95,6 +106,7 @@ class RewardsViewModel(
                     }
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Error loading reward history", e)
                 _uiState.update { state ->
                     state.copy(errorMessage = e.message)
                 }
@@ -111,6 +123,7 @@ class RewardsViewModel(
                     }
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Error loading available rewards", e)
                 _uiState.update { state ->
                     state.copy(errorMessage = e.message)
                 }
@@ -119,17 +132,62 @@ class RewardsViewModel(
     }
 
     /**
-     * Redeem a free coffee for 100 points
+     * Select a reward to redeem - shows confirmation dialog
      */
-    private fun redeemFreeCoffee() {
+    private fun selectRewardToRedeem(reward: Reward) {
+        val currentPoints = _uiState.value.rewardPoints
+
+        if (currentPoints < reward.pointsRequired) {
+            _uiState.update { state ->
+                state.copy(
+                    redeemError = "Không đủ điểm. Bạn cần ${reward.pointsRequired} điểm nhưng chỉ có $currentPoints điểm."
+                )
+            }
+            return
+        }
+
+        _uiState.update { state ->
+            state.copy(
+                selectedReward = reward,
+                showRedeemDialog = true
+            )
+        }
+    }
+
+    /**
+     * Cancel the redemption dialog
+     */
+    private fun cancelRedemption() {
+        _uiState.update { state ->
+            state.copy(
+                selectedReward = null,
+                showRedeemDialog = false
+            )
+        }
+    }
+
+    /**
+     * Confirm and execute the redemption for selected reward
+     */
+    private fun confirmRedemption() {
+        val selectedReward = _uiState.value.selectedReward ?: return
+        redeemSpecificReward(selectedReward)
+    }
+
+    /**
+     * Redeem a specific reward by deducting its required points
+     */
+    private fun redeemSpecificReward(reward: Reward) {
         viewModelScope.launch {
             val currentPoints = _uiState.value.rewardPoints
-            val requiredPoints = RewardsUiState.FREE_COFFEE_POINTS_REQUIRED
+            val requiredPoints = reward.pointsRequired
 
             if (currentPoints < requiredPoints) {
                 _uiState.update { state ->
                     state.copy(
-                        redeemError = "Not enough points. You need $requiredPoints points but have $currentPoints."
+                        showRedeemDialog = false,
+                        selectedReward = null,
+                        redeemError = "Không đủ điểm. Bạn cần $requiredPoints điểm nhưng chỉ có $currentPoints điểm."
                     )
                 }
                 return@launch
@@ -142,29 +200,41 @@ class RewardsViewModel(
                 val success = userRepository.useRewardPoints(requiredPoints)
 
                 if (success) {
-                    // Add to reward history
-                    rewardRepository.addEarnedPoints("Free Coffee (Redeemed)", -requiredPoints)
+                    // Add to reward history with negative points (redeemed)
+                    rewardRepository.addEarnedPoints("${reward.coffeeName} (Đã đổi)", -requiredPoints)
+
+                    Log.d(TAG, "Successfully redeemed: ${reward.coffeeName} for $requiredPoints points")
 
                     _uiState.update { state ->
                         state.copy(
                             isRedeeming = false,
+                            showRedeemDialog = false,
+                            selectedReward = null,
                             redeemSuccess = true,
-                            rewardPoints = state.rewardPoints - requiredPoints
+                            redeemedRewardName = reward.coffeeName,
+                            rewardPoints = state.rewardPoints - requiredPoints,
+                            rewardPointsDisplay = "${state.rewardPoints - requiredPoints}/${state.maxRewardPoints}",
+                            formattedRewardPoints = (state.rewardPoints - requiredPoints).toString()
                         )
                     }
                 } else {
                     _uiState.update { state ->
                         state.copy(
                             isRedeeming = false,
-                            redeemError = "Not enough points"
+                            showRedeemDialog = false,
+                            selectedReward = null,
+                            redeemError = "Không đủ điểm để đổi thưởng"
                         )
                     }
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Error redeeming reward", e)
                 _uiState.update { state ->
                     state.copy(
                         isRedeeming = false,
-                        redeemError = e.message ?: "Failed to redeem"
+                        showRedeemDialog = false,
+                        selectedReward = null,
+                        redeemError = e.message ?: "Không thể đổi thưởng"
                     )
                 }
             }
@@ -182,7 +252,7 @@ class RewardsViewModel(
             if (currentStamps < maxStamps) {
                 _uiState.update { state ->
                     state.copy(
-                        redeemError = "Not enough stamps. You need $maxStamps stamps but have $currentStamps."
+                        redeemError = "Chưa đủ tem. Bạn cần $maxStamps tem nhưng chỉ có $currentStamps tem."
                     )
                 }
                 return@launch
@@ -195,7 +265,9 @@ class RewardsViewModel(
                 userRepository.resetLoyaltyStamps()
 
                 // Add to reward history
-                rewardRepository.addEarnedPoints("Free Coffee (Loyalty Card)", 0)
+                rewardRepository.addEarnedPoints("Free Coffee (Thẻ Loyalty)", 0)
+
+                Log.d(TAG, "Successfully redeemed loyalty stamps")
 
                 _uiState.update { state ->
                     state.copy(
@@ -207,10 +279,11 @@ class RewardsViewModel(
                     )
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Error redeeming stamps", e)
                 _uiState.update { state ->
                     state.copy(
                         isRedeeming = false,
-                        redeemError = e.message ?: "Failed to redeem"
+                        redeemError = e.message ?: "Không thể đổi tem"
                     )
                 }
             }
@@ -222,7 +295,7 @@ class RewardsViewModel(
     }
 
     private fun consumeRedeemSuccess() {
-        _uiState.update { it.copy(redeemSuccess = false) }
+        _uiState.update { it.copy(redeemSuccess = false, redeemedRewardName = null) }
     }
 
     private fun consumeRedeemError() {
@@ -240,6 +313,7 @@ class RewardsViewModel(
  */
 class RedeemViewModel(
     private val getCurrentUserUseCase: GetCurrentUserUseCase = ServiceLocator.provideGetCurrentUserUseCase(),
+    private val userRepository: UserRepository = ServiceLocator.provideUserRepository(),
     private val rewardRepository: RewardRepository = ServiceLocator.provideRewardRepository()
 ) : ViewModel() {
 
@@ -315,19 +389,47 @@ class RedeemViewModel(
             _uiState.update { it.copy(isRedeeming = true) }
 
             try {
-                val success = rewardRepository.redeemReward(rewardId)
-                if (success) {
+                val reward = _uiState.value.availableRewards.find { it.id == rewardId }
+                if (reward == null) {
                     _uiState.update { state ->
                         state.copy(
                             isRedeeming = false,
-                            redeemSuccess = true
+                            errorMessage = "Không tìm thấy phần thưởng"
+                        )
+                    }
+                    return@launch
+                }
+
+                val currentPoints = _uiState.value.currentPoints
+                if (currentPoints < reward.pointsRequired) {
+                    _uiState.update { state ->
+                        state.copy(
+                            isRedeeming = false,
+                            errorMessage = "Không đủ điểm. Cần ${reward.pointsRequired} điểm."
+                        )
+                    }
+                    return@launch
+                }
+
+                // Deduct points
+                val success = userRepository.useRewardPoints(reward.pointsRequired)
+                if (success) {
+                    // Mark reward as redeemed and add to history
+                    rewardRepository.redeemReward(rewardId)
+                    rewardRepository.addEarnedPoints("${reward.coffeeName} (Đã đổi)", -reward.pointsRequired)
+
+                    _uiState.update { state ->
+                        state.copy(
+                            isRedeeming = false,
+                            redeemSuccess = true,
+                            currentPoints = state.currentPoints - reward.pointsRequired
                         )
                     }
                 } else {
                     _uiState.update { state ->
                         state.copy(
                             isRedeeming = false,
-                            errorMessage = "Not enough points to redeem this reward"
+                            errorMessage = "Không đủ điểm để đổi thưởng này"
                         )
                     }
                 }

@@ -26,7 +26,8 @@ class AppViewModelFactory(
             modelClass.isAssignableFrom(HomeViewModel::class.java) -> {
                 HomeViewModel(
                     getCoffeeMenuUseCase = ServiceLocator.provideGetCoffeeMenuUseCase(),
-                    getCurrentUserUseCase = ServiceLocator.provideGetCurrentUserUseCase()
+                    getCurrentUserUseCase = ServiceLocator.provideGetCurrentUserUseCase(),
+                    addToCartUseCase = ServiceLocator.provideAddToCartUseCase()
                 ) as T
             }
 
@@ -43,7 +44,9 @@ class AppViewModelFactory(
                     calculateCartTotalUseCase = ServiceLocator.provideCalculateCartTotalUseCase(),
                     updateCartItemQuantityUseCase = ServiceLocator.provideUpdateCartItemQuantityUseCase(),
                     removeFromCartUseCase = ServiceLocator.provideRemoveFromCartUseCase(),
-                    placeOrderUseCase = ServiceLocator.providePlaceOrderUseCase()
+                    placeOrderUseCase = ServiceLocator.providePlaceOrderUseCase(),
+                    getRecommendationsUseCase = ServiceLocator.provideGetRecommendationsUseCase(),
+                    getCurrentUserUseCase = ServiceLocator.provideGetCurrentUserUseCase()
                 ) as T
             }
 

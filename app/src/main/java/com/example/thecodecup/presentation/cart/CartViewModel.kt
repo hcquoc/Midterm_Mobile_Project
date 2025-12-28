@@ -3,11 +3,14 @@ package com.example.thecodecup.presentation.cart
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.thecodecup.domain.common.DomainResult
+import com.example.thecodecup.domain.model.Cart
 import com.example.thecodecup.domain.usecase.cart.CalculateCartTotalUseCase
 import com.example.thecodecup.domain.usecase.cart.GetCartItemsUseCase
 import com.example.thecodecup.domain.usecase.cart.RemoveFromCartUseCase
 import com.example.thecodecup.domain.usecase.cart.UpdateCartItemQuantityUseCase
 import com.example.thecodecup.domain.usecase.order.PlaceOrderUseCase
+import com.example.thecodecup.domain.usecase.recommendation.GetRecommendationsUseCase
+import com.example.thecodecup.domain.usecase.user.GetCurrentUserUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,7 +29,9 @@ class CartViewModel(
     private val calculateCartTotalUseCase: CalculateCartTotalUseCase,
     private val updateCartItemQuantityUseCase: UpdateCartItemQuantityUseCase,
     private val removeFromCartUseCase: RemoveFromCartUseCase,
-    private val placeOrderUseCase: PlaceOrderUseCase
+    private val placeOrderUseCase: PlaceOrderUseCase,
+    private val getRecommendationsUseCase: GetRecommendationsUseCase,
+    private val getCurrentUserUseCase: GetCurrentUserUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CartUiState())
@@ -45,6 +50,7 @@ class CartViewModel(
 
     init {
         observeCart()
+        observeUser()
     }
 
     fun onEvent(event: CartUiEvent) {
@@ -56,6 +62,31 @@ class CartViewModel(
             is CartUiEvent.ConsumeOrderSuccess -> consumeOrderSuccess()
             is CartUiEvent.ClearError -> clearError()
             is CartUiEvent.NavigateBack -> { /* Handled by screen */ }
+            is CartUiEvent.ToggleUsePoints -> toggleUsePoints(event.usePoints)
+        }
+    }
+
+    /**
+     * Observe user data for points information
+     */
+    private fun observeUser() {
+        viewModelScope.launch {
+            getCurrentUserUseCase().collect { result ->
+                when (result) {
+                    is DomainResult.Success -> {
+                        _uiState.update { state ->
+                            state.copy(user = result.data)
+                        }
+                        // Recalculate discount if usePoints is enabled
+                        if (_uiState.value.usePoints) {
+                            calculatePointsDiscount()
+                        }
+                    }
+                    is DomainResult.Error -> {
+                        // User load error - non-critical, just continue
+                    }
+                }
+            }
         }
     }
 
@@ -78,6 +109,12 @@ class CartViewModel(
                                 isLoading = false
                             )
                         }
+                        // Recalculate discount if usePoints is enabled
+                        if (_uiState.value.usePoints) {
+                            calculatePointsDiscount()
+                        }
+                        // Load recommendations based on cart
+                        loadRecommendations(cart)
                     }
                     is DomainResult.Error -> {
                         _uiState.update { state ->
@@ -86,6 +123,73 @@ class CartViewModel(
                                 errorMessage = result.exception.message
                             )
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Toggle use points for discount
+     */
+    private fun toggleUsePoints(usePoints: Boolean) {
+        _uiState.update { it.copy(usePoints = usePoints) }
+        if (usePoints) {
+            calculatePointsDiscount()
+        } else {
+            _uiState.update { it.copy(pointsDiscount = 0.0, pointsToUse = 0) }
+        }
+    }
+
+    /**
+     * Calculate discount amount when using points
+     * Conversion: 1 Point = 100 VND
+     */
+    private fun calculatePointsDiscount() {
+        val state = _uiState.value
+        val availablePoints = state.availablePoints
+        val totalPrice = state.totalPrice
+
+        if (availablePoints <= 0 || totalPrice <= 0) {
+            _uiState.update { it.copy(pointsDiscount = 0.0, pointsToUse = 0) }
+            return
+        }
+
+        // Calculate max discount possible
+        val maxDiscountFromPoints = availablePoints * CartUiState.POINTS_TO_VND_RATE
+        val actualDiscount = minOf(maxDiscountFromPoints, totalPrice)
+        val pointsToUse = (actualDiscount / CartUiState.POINTS_TO_VND_RATE).toInt()
+
+        _uiState.update {
+            it.copy(
+                pointsDiscount = actualDiscount,
+                pointsToUse = pointsToUse
+            )
+        }
+    }
+
+    /**
+     * Load product recommendations based on current cart items
+     */
+    private fun loadRecommendations(cart: Cart) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingRecommendations = true) }
+
+            when (val result = getRecommendationsUseCase(cart)) {
+                is DomainResult.Success -> {
+                    _uiState.update { state ->
+                        state.copy(
+                            recommendations = result.data,
+                            isLoadingRecommendations = false
+                        )
+                    }
+                }
+                is DomainResult.Error -> {
+                    _uiState.update { state ->
+                        state.copy(
+                            recommendations = emptyList(),
+                            isLoadingRecommendations = false
+                        )
                     }
                 }
             }
@@ -127,20 +231,32 @@ class CartViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isCheckingOut = true) }
 
-            when (val result = placeOrderUseCase(note = note, deliveryAddress = address)) {
+            val state = _uiState.value
+            val result = placeOrderUseCase(
+                note = note,
+                deliveryAddress = address,
+                usePoints = state.usePoints,
+                pointsToUse = state.pointsToUse
+            )
+
+            when (result) {
                 is DomainResult.Success -> {
-                    _uiState.update { state ->
-                        state.copy(
+                    _uiState.update { currentState ->
+                        currentState.copy(
                             isCheckingOut = false,
                             orderSuccess = true,
                             orderId = result.data.order.id,
-                            pointsEarned = result.data.pointsEarned
+                            pointsEarned = result.data.pointsEarned,
+                            // Reset points usage after order
+                            usePoints = false,
+                            pointsDiscount = 0.0,
+                            pointsToUse = 0
                         )
                     }
                 }
                 is DomainResult.Error -> {
-                    _uiState.update { state ->
-                        state.copy(
+                    _uiState.update { currentState ->
+                        currentState.copy(
                             isCheckingOut = false,
                             errorMessage = result.exception.message
                         )

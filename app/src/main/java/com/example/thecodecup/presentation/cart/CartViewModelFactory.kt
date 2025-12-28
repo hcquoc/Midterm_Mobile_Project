@@ -18,7 +18,9 @@ class CartViewModelFactory : ViewModelProvider.Factory {
                     calculateCartTotalUseCase = ServiceLocator.provideCalculateCartTotalUseCase(),
                     updateCartItemQuantityUseCase = ServiceLocator.provideUpdateCartItemQuantityUseCase(),
                     removeFromCartUseCase = ServiceLocator.provideRemoveFromCartUseCase(),
-                    placeOrderUseCase = ServiceLocator.providePlaceOrderUseCase()
+                    placeOrderUseCase = ServiceLocator.providePlaceOrderUseCase(),
+                    getRecommendationsUseCase = ServiceLocator.provideGetRecommendationsUseCase(),
+                    getCurrentUserUseCase = ServiceLocator.provideGetCurrentUserUseCase()
                 ) as T
             } catch (e: Exception) {
                 android.util.Log.e("CartViewModelFactory", "Error creating CartViewModel", e)

@@ -62,6 +62,8 @@ app/src/main/java/com/example/thecodecup/
 │       │   ├── GetOngoingOrdersUseCase.kt
 │       │   ├── GetOrderByIdUseCase.kt
 │       │   └── CancelOrderUseCase.kt
+│       ├── recommendation/
+│       │   └── GetRecommendationsUseCase.kt  # Smart product recommendations
 │       └── user/
 │           ├── GetCurrentUserUseCase.kt
 │           └── UpdateUserProfileUseCase.kt
@@ -170,7 +172,8 @@ sealed class DomainResult<out T> {
 - **CartItem**: id, coffee, options, quantity + unitPrice, totalPrice
 - **Cart**: items + totalPrice, itemCount, isEmpty
 - **Order**: id, items, totalPrice, status, address, createdAt
-- **User**: id, name, phone, email, address, loyaltyStamps, rewardPoints
+- **User**: id, name, phone, email, address, loyaltyStamps, rewardPoints, membershipTier
+- **MembershipTier**: SILVER (0-999 pts, x1), GOLD (1000+ pts, x1.5)
 - **Reward**: id, coffeeName, validUntil, pointsRequired, isRedeemed
 
 ## Data Layer
@@ -179,7 +182,7 @@ sealed class DomainResult<out T> {
 ```kotlin
 @Database(
     entities = [CoffeeEntity::class, CartItemEntity::class],
-    version = 1
+    version = 6
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun coffeeDao(): CoffeeDao
@@ -226,12 +229,20 @@ fun String.toCoffeeOptions(): CoffeeOptions
   2. Creates Order with OrderItems
   3. Saves Order to DB
   4. Clears the Cart
-  5. Calculates loyalty points (1 point per 1000 currency units)
-  6. Updates User's loyalty points and stamps
+  5. Deducts points if "Pay with Points" is enabled (1 point = 100 VND)
+  6. Calculates loyalty points with tier multiplier (Silver x1, Gold x1.5)
+  7. Updates User's loyalty points and stamps
 - **GetOrderHistoryUseCase**: Get completed/cancelled orders sorted by date desc
 - **GetOngoingOrdersUseCase**: Get PLACED/ONGOING orders
 - **GetOrderByIdUseCase**: Get single order by ID
 - **CancelOrderUseCase**: Cancel a PLACED or ONGOING order
+
+### Recommendation Use Cases
+- **GetRecommendationsUseCase**: Smart product recommendations based on cart items:
+  - If cart has drinks (Coffee, Latte, Tea, etc.) → Suggest CAKE/food items
+  - If cart has only food/cake items → Suggest drink items
+  - If cart is empty → Suggest popular items (highest ratings)
+  - If mixed or unknown → Suggest 3 random items not in cart
 
 ## Dependency Injection
 
@@ -300,12 +311,16 @@ implementation(libs.gson)
 
 ## Notes
 
-- Database được pre-populate với 18 loại coffee khi khởi tạo
+- Database được pre-populate với 21 sản phẩm (16 đồ uống + 5 bánh ngọt) khi khởi tạo
 - Cart items được lưu trong Room database để persist qua app restarts
 - Orders, User, Rewards hiện sử dụng in-memory storage (có thể migrate sang Room sau)
 - **ViewModels chỉ phụ thuộc vào UseCases**, không trực tiếp sử dụng Repositories
 - Sử dụng `AppViewModelFactory` để inject UseCases vào ViewModels
 - Tất cả ViewModel đều handle `DomainResult` (Success/Error) từ UseCases
+- **Recommendation System**: Gợi ý sản phẩm thông minh trong giỏ hàng dựa trên loại sản phẩm đã thêm
+- **Membership Tiers**: Silver (0-999 pts, x1 multiplier), Gold (1000+ pts, x1.5 multiplier)
+- **Pay with Points**: 1 điểm = 100 VND, có thể dùng điểm để giảm giá đơn hàng
+- **Loyalty Points**: 1 sản phẩm = 1 điểm cơ bản (nhân với tier multiplier)
 
 ## ViewModel Pattern
 

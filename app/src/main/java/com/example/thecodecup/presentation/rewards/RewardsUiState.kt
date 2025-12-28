@@ -11,25 +11,33 @@ data class RewardsUiState(
     val maxLoyaltyStamps: Int = 8,
     val loyaltyProgress: Float = 0f,
     val loyaltyStampsDisplay: String = "0/8",
-    val rewardPoints: Int = 0,
-    val maxRewardPoints: Int = 5000,
+    val rewardPoints: Int = 100,  // Default 100 points
+    val maxRewardPoints: Int = 500,
     val rewardPointsProgress: Float = 0f,
-    val rewardPointsDisplay: String = "0/5000",
-    val formattedRewardPoints: String = "0",
+    val rewardPointsDisplay: String = "100/500",
+    val formattedRewardPoints: String = "100",
     val historyItems: List<RewardHistory> = emptyList(),
     val availableRewards: List<Reward> = emptyList(),
+    val selectedReward: Reward? = null,  // Currently selected reward for redemption
+    val showRedeemDialog: Boolean = false,  // Show confirmation dialog
     val isLoading: Boolean = false,
     val isRedeeming: Boolean = false,
     val redeemSuccess: Boolean = false,
     val redeemStampsSuccess: Boolean = false,
     val redeemError: String? = null,
+    val redeemedRewardName: String? = null,  // Name of successfully redeemed reward
     val errorMessage: String? = null
 ) {
     /**
-     * Check if user can redeem a free coffee (100 points required)
+     * Check if user can redeem a specific reward
      */
-    val canRedeemFreeCoffee: Boolean
-        get() = rewardPoints >= FREE_COFFEE_POINTS_REQUIRED
+    fun canRedeemReward(reward: Reward): Boolean = rewardPoints >= reward.pointsRequired
+
+    /**
+     * Check if user can redeem the selected reward
+     */
+    val canRedeemSelectedReward: Boolean
+        get() = selectedReward?.let { rewardPoints >= it.pointsRequired } ?: false
 
     /**
      * Check if user can redeem loyalty stamps (8 stamps required)
@@ -37,8 +45,18 @@ data class RewardsUiState(
     val canRedeemStamps: Boolean
         get() = loyaltyStamps >= maxLoyaltyStamps
 
+    /**
+     * Get rewards that user can afford
+     */
+    val affordableRewards: List<Reward>
+        get() = availableRewards.filter { rewardPoints >= it.pointsRequired }
+
     companion object {
-        const val FREE_COFFEE_POINTS_REQUIRED = 100
+        // Minimum points thresholds for different reward tiers
+        const val TIER_1_POINTS = 30   // Small treats
+        const val TIER_2_POINTS = 50   // Regular drinks
+        const val TIER_3_POINTS = 80   // Premium drinks
+        const val TIER_4_POINTS = 120  // Combo/Special
     }
 }
 
@@ -46,8 +64,8 @@ data class RewardsUiState(
  * UI State for Redeem Screen
  */
 data class RedeemUiState(
-    val currentPoints: Int = 2750,
-    val formattedPoints: String = "2,750",
+    val currentPoints: Int = 100,
+    val formattedPoints: String = "100",
     val availableRewards: List<Reward> = emptyList(),
     val isLoading: Boolean = false,
     val isRedeeming: Boolean = false,
@@ -63,11 +81,16 @@ sealed interface RewardsUiEvent {
     data object ClearError : RewardsUiEvent
     data object LoyaltyCardClicked : RewardsUiEvent
     data object RedeemClicked : RewardsUiEvent
-    data object RedeemFreeCoffee : RewardsUiEvent
     data object RedeemStamps : RewardsUiEvent
     data object ConsumeRedeemSuccess : RewardsUiEvent
     data object ConsumeRedeemStampsSuccess : RewardsUiEvent
     data object ConsumeRedeemError : RewardsUiEvent
+
+    // New events for reward-based redemption
+    data class SelectRewardToRedeem(val reward: Reward) : RewardsUiEvent
+    data object ConfirmRedemption : RewardsUiEvent
+    data object CancelRedemption : RewardsUiEvent
+    data class RedeemSpecificReward(val reward: Reward) : RewardsUiEvent
 }
 
 /**

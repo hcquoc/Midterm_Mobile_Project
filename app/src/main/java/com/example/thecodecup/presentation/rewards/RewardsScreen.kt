@@ -52,14 +52,26 @@ fun RewardsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Handle redeem success
+    // Handle redeem success with reward name
     LaunchedEffect(uiState.redeemSuccess) {
         if (uiState.redeemSuccess) {
+            val rewardName = uiState.redeemedRewardName ?: "phần thưởng"
             snackbarHostState.showSnackbar(
-                message = "🎉 Reward Redeemed! Enjoy your free coffee!",
+                message = "🎉 Đổi thưởng thành công! Thưởng thức $rewardName của bạn!",
                 duration = SnackbarDuration.Short
             )
             viewModel.onEvent(RewardsUiEvent.ConsumeRedeemSuccess)
+        }
+    }
+
+    // Handle stamps redeem success
+    LaunchedEffect(uiState.redeemStampsSuccess) {
+        if (uiState.redeemStampsSuccess) {
+            snackbarHostState.showSnackbar(
+                message = "🎉 Đổi tem thành công! Thưởng thức ly cà phê miễn phí!",
+                duration = SnackbarDuration.Short
+            )
+            viewModel.onEvent(RewardsUiEvent.ConsumeRedeemStampsSuccess)
         }
     }
 
@@ -74,13 +86,24 @@ fun RewardsScreen(
         }
     }
 
+    // Redeem Confirmation Dialog
+    if (uiState.showRedeemDialog && uiState.selectedReward != null) {
+        RedeemConfirmationDialog(
+            reward = uiState.selectedReward!!,
+            currentPoints = uiState.rewardPoints,
+            isRedeeming = uiState.isRedeeming,
+            onConfirm = { viewModel.onEvent(RewardsUiEvent.ConfirmRedemption) },
+            onDismiss = { viewModel.onEvent(RewardsUiEvent.CancelRedemption) }
+        )
+    }
+
     Scaffold(
         containerColor = Color.White,
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState) { data ->
                 Snackbar(
                     snackbarData = data,
-                    containerColor = if (uiState.redeemSuccess) AppColors.Success else AppColors.Error,
+                    containerColor = if (uiState.redeemSuccess || uiState.redeemStampsSuccess) AppColors.Success else AppColors.Error,
                     contentColor = Color.White,
                     shape = RoundedCornerShape(12.dp)
                 )
@@ -113,51 +136,54 @@ fun RewardsScreen(
                 )
             }
 
-            // Loyalty Card
+            // Loyalty Card with redeem button
             item {
-                com.example.thecodecup.presentation.components.cards.SharedLoyaltyCard(
+                LoyaltyCardWithRedeem(
                     currentStamps = uiState.loyaltyStamps,
                     maxStamps = uiState.maxLoyaltyStamps,
-                    onClick = {
+                    canRedeem = uiState.canRedeemStamps,
+                    isRedeeming = uiState.isRedeeming,
+                    onRedeemClick = { viewModel.onEvent(RewardsUiEvent.RedeemStamps) },
+                    onCardClick = {
                         viewModel.onEvent(RewardsUiEvent.LoyaltyCardClicked)
                         onLoyaltyCardClick()
                     }
                 )
             }
 
-            // Redeem Free Coffee Section
+            // Available Rewards Section - User picks which reward to redeem
             item {
-                RedeemFreeCoffeeCard(
-                    currentPoints = uiState.rewardPoints,
-                    requiredPoints = RewardsUiState.FREE_COFFEE_POINTS_REQUIRED,
-                    canRedeem = uiState.canRedeemFreeCoffee,
-                    isRedeeming = uiState.isRedeeming,
-                    onRedeemClick = {
-                        viewModel.onEvent(RewardsUiEvent.RedeemFreeCoffee)
-                    }
+                Text(
+                    text = "Đổi Điểm Thưởng",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AppColors.Primary,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                )
+                Text(
+                    text = "Chọn phần thưởng bạn muốn đổi",
+                    fontSize = 14.sp,
+                    color = AppColors.TextSecondary,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
 
             // Available Rewards Section
             if (uiState.availableRewards.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "Available Rewards",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = AppColors.Primary,
-                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                items(uiState.availableRewards.filter { !it.isRedeemed }) { reward ->
+                    RedeemableRewardItem(
+                        reward = reward,
+                        currentPoints = uiState.rewardPoints,
+                        canRedeem = uiState.canRedeemReward(reward),
+                        isRedeeming = uiState.isRedeeming,
+                        onRedeemClick = {
+                            viewModel.onEvent(RewardsUiEvent.SelectRewardToRedeem(reward))
+                        }
                     )
                 }
-
-                items(uiState.availableRewards.filter { !it.isRedeemed }) { reward ->
-                    AvailableRewardItem(
-                        coffeeName = reward.coffeeName,
-                        pointsRequired = reward.pointsRequired,
-                        validUntil = reward.validUntil,
-                        canRedeem = uiState.rewardPoints >= reward.pointsRequired,
-                        onRedeemClick = onRedeemClick
-                    )
+            } else {
+                item {
+                    EmptyRewardsPlaceholder()
                 }
             }
 
@@ -300,10 +326,10 @@ fun PointsProgressCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             // Points until next reward
-            val pointsUntilFreeCoffee = (RewardsUiState.FREE_COFFEE_POINTS_REQUIRED - currentPoints).coerceAtLeast(0)
+            val pointsUntilFreeCoffee = (RewardsUiState.TIER_2_POINTS - currentPoints).coerceAtLeast(0)
             if (pointsUntilFreeCoffee > 0) {
                 Text(
-                    text = "$pointsUntilFreeCoffee pts until free coffee!",
+                    text = "Còn $pointsUntilFreeCoffee điểm để đổi thưởng!",
                     color = AppColors.Secondary,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
@@ -320,7 +346,7 @@ fun PointsProgressCard(
                         modifier = Modifier.size(18.dp)
                     )
                     Text(
-                        text = "Free coffee available!",
+                        text = "Có thể đổi thưởng!",
                         color = AppColors.Secondary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold
@@ -832,6 +858,317 @@ val sampleHistory = listOf(
     RewardHistoryItem(3, "Green Tea Latte", 12, "16 June | 10:48 AM"),
     RewardHistoryItem(4, "Flat White", 12, "12 May | 11:25 AM")
 )
+
+/**
+ * Confirmation dialog for redeeming a reward
+ */
+@Composable
+fun RedeemConfirmationDialog(
+    reward: com.example.thecodecup.domain.model.Reward,
+    currentPoints: Int,
+    isRedeeming: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = { if (!isRedeeming) onDismiss() },
+        shape = RoundedCornerShape(20.dp),
+        containerColor = Color.White,
+        icon = {
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(CircleShape)
+                    .background(AppColors.Primary.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CardGiftcard,
+                    contentDescription = null,
+                    tint = AppColors.Primary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        },
+        title = {
+            Text(
+                text = "Xác nhận đổi thưởng",
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                color = AppColors.Primary,
+                textAlign = TextAlign.Center
+            )
+        },
+        text = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = reward.coffeeName,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 18.sp,
+                    color = AppColors.TextPrimary,
+                    textAlign = TextAlign.Center
+                )
+
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = AppColors.LightBackground)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = AppColors.Secondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "${reward.pointsRequired} điểm",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = AppColors.Secondary
+                        )
+                    }
+                }
+
+                Text(
+                    text = "Số điểm còn lại sau khi đổi: ${currentPoints - reward.pointsRequired} điểm",
+                    fontSize = 14.sp,
+                    color = AppColors.TextSecondary,
+                    textAlign = TextAlign.Center
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = !isRedeeming,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = AppColors.Primary)
+            ) {
+                if (isRedeeming) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Xác nhận", fontWeight = FontWeight.SemiBold)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isRedeeming
+            ) {
+                Text("Hủy", color = AppColors.TextSecondary)
+            }
+        }
+    )
+}
+
+/**
+ * Loyalty card with redeem button when full
+ */
+@Composable
+fun LoyaltyCardWithRedeem(
+    currentStamps: Int,
+    maxStamps: Int,
+    canRedeem: Boolean,
+    isRedeeming: Boolean,
+    onRedeemClick: () -> Unit,
+    onCardClick: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        com.example.thecodecup.presentation.components.cards.SharedLoyaltyCard(
+            currentStamps = currentStamps,
+            maxStamps = maxStamps,
+            onClick = onCardClick
+        )
+
+        if (canRedeem) {
+            Button(
+                onClick = onRedeemClick,
+                enabled = !isRedeeming,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = AppColors.Success)
+            ) {
+                if (isRedeeming) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Redeem,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Đổi ngay - Nhận 1 ly miễn phí!",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Redeemable reward item with redeem button
+ */
+@Composable
+fun RedeemableRewardItem(
+    reward: com.example.thecodecup.domain.model.Reward,
+    currentPoints: Int,
+    canRedeem: Boolean,
+    isRedeeming: Boolean,
+    onRedeemClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (canRedeem) AppColors.LightBackground else Color.White
+        ),
+        border = if (!canRedeem) androidx.compose.foundation.BorderStroke(
+            1.dp,
+            AppColors.Divider
+        ) else null
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                // Icon
+                Box(
+                    modifier = Modifier
+                        .size(50.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (canRedeem) AppColors.Primary.copy(alpha = 0.15f)
+                            else AppColors.GrayText.copy(alpha = 0.1f)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocalCafe,
+                        contentDescription = null,
+                        tint = if (canRedeem) AppColors.Primary else AppColors.GrayText,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+
+                Column {
+                    Text(
+                        text = reward.coffeeName,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (canRedeem) AppColors.TextPrimary else AppColors.GrayText
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = null,
+                            tint = if (canRedeem) AppColors.Secondary else AppColors.GrayText,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            text = "${reward.pointsRequired} điểm",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (canRedeem) AppColors.Secondary else AppColors.GrayText
+                        )
+                    }
+                    if (!canRedeem) {
+                        Text(
+                            text = "Cần thêm ${reward.pointsRequired - currentPoints} điểm",
+                            fontSize = 12.sp,
+                            color = AppColors.Error
+                        )
+                    }
+                }
+            }
+
+            // Redeem Button
+            Button(
+                onClick = onRedeemClick,
+                enabled = canRedeem && !isRedeeming,
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AppColors.Primary,
+                    disabledContainerColor = AppColors.GrayText.copy(alpha = 0.3f)
+                ),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = "Đổi",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Empty rewards placeholder
+ */
+@Composable
+fun EmptyRewardsPlaceholder() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = AppColors.LightBackground)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.CardGiftcard,
+                contentDescription = null,
+                tint = AppColors.GrayText,
+                modifier = Modifier.size(48.dp)
+            )
+            Text(
+                text = "Chưa có phần thưởng",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = AppColors.GrayText
+            )
+            Text(
+                text = "Tiếp tục mua sắm để tích điểm và đổi thưởng nhé!",
+                fontSize = 14.sp,
+                color = AppColors.TextSecondary,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
 
 @Preview(showBackground = true, showSystemUi = true)
 @Composable

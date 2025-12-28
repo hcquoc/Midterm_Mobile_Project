@@ -30,9 +30,14 @@ data class Coffee(
 /**
  * Coffee categories
  */
-enum class CoffeeCategory {
-    COFFEE,
-    TEA,
-    FREEZE
+enum class CoffeeCategory(val displayName: String) {
+    ALL("Tất cả"),
+    COFFEE("Cà phê"),
+    ESPRESSO("Espresso"),
+    LATTE("Latte"),
+    TEA("Trà"),
+    PHIN("Phin VN"),
+    FREEZE("Freeze"),
+    CAKE("Bánh ngọt")
 }
 

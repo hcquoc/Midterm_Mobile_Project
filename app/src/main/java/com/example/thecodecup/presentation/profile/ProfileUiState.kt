@@ -1,5 +1,6 @@
 package com.example.thecodecup.presentation.profile
 
+import com.example.thecodecup.domain.model.MembershipTier
 import com.example.thecodecup.domain.model.Order
 import com.example.thecodecup.presentation.utils.PriceFormatter
 
@@ -14,7 +15,9 @@ data class ProfileUiState(
     val avatarInitials: String = "A",
     val rewardPoints: Int = 0,
     val totalSpent: Double = 0.0,
-    val loyaltyTier: LoyaltyTier = LoyaltyTier.BRONZE,
+    val membershipTier: MembershipTier = MembershipTier.SILVER,
+    val pointsToNextTier: Int = 1000,
+    val tierProgress: Float = 0f,
     val orderHistory: List<Order> = emptyList(),
     val isLoadingOrders: Boolean = false,
     val editingField: ProfileField? = null,
@@ -28,23 +31,10 @@ data class ProfileUiState(
 
     val completedOrdersCount: Int
         get() = orderHistory.size
-}
 
-/**
- * Loyalty tier based on total spent (VND)
- */
-enum class LoyaltyTier(val displayName: String, val minSpent: Double) {
-    BRONZE("Bronze", 0.0),
-    SILVER("Silver", 500000.0),      // 500K VND
-    GOLD("Gold", 1500000.0),         // 1.5M VND
-    PLATINUM("Platinum", 5000000.0); // 5M VND
-
-    companion object {
-        fun fromTotalSpent(totalSpent: Double): LoyaltyTier {
-            return entries.sortedByDescending { it.minSpent }
-                .firstOrNull { totalSpent >= it.minSpent } ?: BRONZE
-        }
-    }
+    /** Check if user is at highest tier */
+    val isMaxTier: Boolean
+        get() = membershipTier == MembershipTier.GOLD
 }
 
 /**

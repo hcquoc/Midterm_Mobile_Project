@@ -67,6 +67,14 @@ fun DetailScreen(
 
     val uiState by viewModel.uiState.collectAsState()
 
+    // Navigate to cart when item is added successfully
+    LaunchedEffect(uiState.addedToCart) {
+        if (uiState.addedToCart) {
+            viewModel.onEvent(DetailUiEvent.ConsumeAddedToCart)
+            onNavigateToCart()
+        }
+    }
+
     // --- STATE MANAGEMENT ---
     var quantity by remember { mutableIntStateOf(1) }
     var selectedShot by remember { mutableStateOf(Shot.SINGLE) }

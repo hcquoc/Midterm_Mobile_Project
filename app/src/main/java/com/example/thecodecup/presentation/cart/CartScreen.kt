@@ -8,13 +8,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.thecodecup.domain.model.CartItem
+import com.example.thecodecup.domain.model.Coffee
 import com.example.thecodecup.presentation.components.colors.AppColors
 import com.example.thecodecup.presentation.utils.PriceFormatter
 
@@ -40,6 +44,7 @@ import com.example.thecodecup.presentation.utils.PriceFormatter
 fun CartScreen(
     onBackClick: () -> Unit = {},
     onCheckout: (orderId: String) -> Unit = {},
+    onCoffeeClick: (Coffee) -> Unit = {},
     viewModel: CartViewModel = viewModel(factory = CartViewModelFactory())
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -62,6 +67,14 @@ fun CartScreen(
                     deliveryFee = uiState.deliveryFee,
                     totalPrice = uiState.totalPrice,
                     isLoading = uiState.isCheckingOut,
+                    // Pay with Points
+                    availablePoints = uiState.availablePoints,
+                    usePoints = uiState.usePoints,
+                    pointsDiscount = uiState.pointsDiscount,
+                    finalTotal = uiState.finalTotal,
+                    onToggleUsePoints = { usePoints ->
+                        viewModel.onEvent(CartUiEvent.ToggleUsePoints(usePoints))
+                    },
                     onCheckout = {
                         viewModel.onEvent(CartUiEvent.PlaceOrder())
                     }
@@ -118,6 +131,17 @@ fun CartScreen(
                         }
                     )
                 }
+
+                // Recommendations Section
+                if (uiState.hasRecommendations) {
+                    item {
+                        RecommendationsSection(
+                            recommendations = uiState.recommendations,
+                            onCoffeeClick = onCoffeeClick
+                        )
+                    }
+                }
+
                 item { Spacer(modifier = Modifier.height(16.dp)) }
             }
         }
@@ -312,6 +336,12 @@ fun CartBottomBar(
     deliveryFee: Double,
     totalPrice: Double,
     isLoading: Boolean = false,
+    // Pay with Points props
+    availablePoints: Int = 0,
+    usePoints: Boolean = false,
+    pointsDiscount: Double = 0.0,
+    finalTotal: Double = totalPrice,
+    onToggleUsePoints: (Boolean) -> Unit = {},
     onCheckout: () -> Unit = {}
 ) {
     Surface(
@@ -356,6 +386,39 @@ fun CartBottomBar(
                     color = AppColors.TextPrimary
                 )
             }
+
+            // Pay with Points Section
+            if (availablePoints > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                PayWithPointsSection(
+                    availablePoints = availablePoints,
+                    usePoints = usePoints,
+                    pointsDiscount = pointsDiscount,
+                    onToggleUsePoints = onToggleUsePoints
+                )
+            }
+
+            // Show discount if using points
+            if (usePoints && pointsDiscount > 0) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Giảm giá (điểm)",
+                        fontSize = 11.sp,
+                        color = AppColors.Success
+                    )
+                    Text(
+                        text = "-${PriceFormatter.formatVND(pointsDiscount)}",
+                        fontSize = 11.sp,
+                        color = AppColors.Success,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(6.dp))
             HorizontalDivider(color = AppColors.Divider, thickness = 1.dp)
             Spacer(modifier = Modifier.height(6.dp))
@@ -373,7 +436,7 @@ fun CartBottomBar(
                         color = AppColors.GrayText
                     )
                     Text(
-                        text = PriceFormatter.formatVND(totalPrice),
+                        text = PriceFormatter.formatVND(finalTotal),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = AppColors.Primary
@@ -421,9 +484,213 @@ fun CartBottomBar(
     }
 }
 
+/**
+ * Pay with Points Section - Switch để sử dụng điểm giảm giá
+ */
+@Composable
+fun PayWithPointsSection(
+    availablePoints: Int,
+    usePoints: Boolean,
+    pointsDiscount: Double,
+    onToggleUsePoints: (Boolean) -> Unit
+) {
+    val discountText = if (pointsDiscount > 0) {
+        "Dùng $availablePoints điểm để giảm ${PriceFormatter.formatVND(pointsDiscount)}"
+    } else {
+        "Bạn có $availablePoints điểm"
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = if (usePoints) AppColors.Success.copy(alpha = 0.1f) else AppColors.LightBackground
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = null,
+                    tint = AppColors.Secondary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = discountText,
+                    fontSize = 12.sp,
+                    color = if (usePoints) AppColors.Success else AppColors.TextPrimary,
+                    fontWeight = if (usePoints) FontWeight.Medium else FontWeight.Normal
+                )
+            }
+            Switch(
+                checked = usePoints,
+                onCheckedChange = onToggleUsePoints,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = AppColors.Success,
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = AppColors.GrayText.copy(alpha = 0.3f)
+                ),
+                modifier = Modifier.scale(0.8f)
+            )
+        }
+    }
+}
+
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun CartScreenPreview() {
     CartScreen()
 }
 
+/**
+ * Recommendations Section - Gợi ý sản phẩm dựa trên giỏ hàng
+ */
+@Composable
+fun RecommendationsSection(
+    recommendations: List<Coffee>,
+    onCoffeeClick: (Coffee) -> Unit = {}
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp)
+    ) {
+        Text(
+            text = "Có thể bạn sẽ thích",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = AppColors.Primary,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(end = 8.dp)
+        ) {
+            items(recommendations, key = { it.id }) { coffee ->
+                RecommendationCard(
+                    coffee = coffee,
+                    onClick = { onCoffeeClick(coffee) }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Card hiển thị sản phẩm gợi ý
+ */
+@Composable
+fun RecommendationCard(
+    coffee: Coffee,
+    onClick: () -> Unit = {}
+) {
+    val context = LocalContext.current
+    val imageResId = remember(coffee.imageName) {
+        if (coffee.imageName.isNullOrBlank()) {
+            0
+        } else {
+            try {
+                context.resources.getIdentifier(
+                    coffee.imageName,
+                    "drawable",
+                    context.packageName
+                )
+            } catch (_: Exception) {
+                0
+            }
+        }
+    }
+
+    Card(
+        modifier = Modifier
+            .width(140.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = AppColors.LightBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp)
+        ) {
+            // Image
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(90.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
+                if (imageResId > 0) {
+                    Image(
+                        painter = painterResource(id = imageResId),
+                        contentDescription = coffee.name,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.LocalCafe,
+                        contentDescription = coffee.name,
+                        tint = AppColors.Primary,
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Name
+            Text(
+                text = coffee.name,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = AppColors.Primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Rating
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = null,
+                    tint = AppColors.Secondary,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = coffee.ratingDisplay,
+                    fontSize = 12.sp,
+                    color = AppColors.GrayText
+                )
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Price
+            Text(
+                text = PriceFormatter.formatVND(coffee.basePrice),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = AppColors.Secondary
+            )
+        }
+    }
+}

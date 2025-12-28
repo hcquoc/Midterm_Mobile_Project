@@ -74,8 +74,10 @@ fun ProfileContent(
                     name = uiState.fullName,
                     email = uiState.email,
                     initials = uiState.avatarInitials,
-                    loyaltyTier = uiState.loyaltyTier,
-                    rewardPoints = uiState.rewardPoints
+                    membershipTier = uiState.membershipTier,
+                    rewardPoints = uiState.rewardPoints,
+                    pointsToNextTier = uiState.pointsToNextTier,
+                    tierProgress = uiState.tierProgress
                 )
             }
 
@@ -83,7 +85,7 @@ fun ProfileContent(
             item {
                 ProfileSummaryChips(
                     totalSpent = uiState.formattedTotalSpent,
-                    loyaltyTier = uiState.loyaltyTier,
+                    membershipTier = uiState.membershipTier,
                     ordersCount = uiState.completedOrdersCount
                 )
             }
@@ -196,8 +198,10 @@ fun ProfileHeader(
     name: String,
     email: String,
     initials: String,
-    loyaltyTier: LoyaltyTier,
-    rewardPoints: Int
+    membershipTier: com.example.thecodecup.domain.model.MembershipTier,
+    rewardPoints: Int,
+    pointsToNextTier: Int = 0,
+    tierProgress: Float = 0f
 ) {
     Column(
         modifier = Modifier
@@ -224,13 +228,32 @@ fun ProfileHeader(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Name
-        Text(
-            text = name,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
+        // Name with Tier Badge
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = name,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            // Tier Badge
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = getMembershipTierColor(membershipTier)
+            ) {
+                Text(
+                    text = membershipTier.displayName,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(4.dp))
 
@@ -241,35 +264,66 @@ fun ProfileHeader(
             color = Color.White.copy(alpha = 0.8f)
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Loyalty Badge
+        // Points and Progress to Next Tier
         Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = getLoyaltyTierColor(loyaltyTier).copy(alpha = 0.2f)
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White.copy(alpha = 0.15f)
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Star,
-                    contentDescription = null,
-                    tint = getLoyaltyTierColor(loyaltyTier),
-                    modifier = Modifier.size(18.dp)
-                )
-                Text(
-                    text = "${loyaltyTier.displayName} Member",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = getLoyaltyTierColor(loyaltyTier)
-                )
-                Text(
-                    text = "• $rewardPoints pts",
-                    fontSize = 14.sp,
-                    color = getLoyaltyTierColor(loyaltyTier).copy(alpha = 0.8f)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Star,
+                            contentDescription = null,
+                            tint = getMembershipTierColor(membershipTier),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "$rewardPoints điểm",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                    Text(
+                        text = "x${membershipTier.multiplier} điểm",
+                        fontSize = 14.sp,
+                        color = getMembershipTierColor(membershipTier),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                // Progress to Gold (if not already Gold)
+                if (membershipTier == com.example.thecodecup.domain.model.MembershipTier.SILVER) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    LinearProgressIndicator(
+                        progress = { tierProgress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = getMembershipTierColor(com.example.thecodecup.domain.model.MembershipTier.GOLD),
+                        trackColor = Color.White.copy(alpha = 0.3f)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Còn $pointsToNextTier điểm để lên Gold",
+                        fontSize = 12.sp,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+                }
             }
         }
     }
@@ -281,7 +335,7 @@ fun ProfileHeader(
 @Composable
 fun ProfileSummaryChips(
     totalSpent: String,
-    loyaltyTier: LoyaltyTier,
+    membershipTier: com.example.thecodecup.domain.model.MembershipTier,
     ordersCount: Int
 ) {
     Row(
@@ -305,7 +359,7 @@ fun ProfileSummaryChips(
         SummaryChip(
             icon = Icons.Outlined.CardGiftcard,
             label = "Tier",
-            value = loyaltyTier.displayName,
+            value = membershipTier.displayName,
             modifier = Modifier.weight(1f)
         )
     }
@@ -608,15 +662,13 @@ fun LogOutButton(onClick: () -> Unit) {
 }
 
 /**
- * Get color for loyalty tier
+ * Get color for membership tier
  */
 @Composable
-fun getLoyaltyTierColor(tier: LoyaltyTier): Color {
+fun getMembershipTierColor(tier: com.example.thecodecup.domain.model.MembershipTier): Color {
     return when (tier) {
-        LoyaltyTier.BRONZE -> Color(0xFFCD7F32)
-        LoyaltyTier.SILVER -> Color(0xFFC0C0C0)
-        LoyaltyTier.GOLD -> Color(0xFFFFD700)
-        LoyaltyTier.PLATINUM -> Color(0xFFE5E4E2)
+        com.example.thecodecup.domain.model.MembershipTier.SILVER -> Color(0xFFC0C0C0)
+        com.example.thecodecup.domain.model.MembershipTier.GOLD -> Color(0xFFFFD700)
     }
 }
 

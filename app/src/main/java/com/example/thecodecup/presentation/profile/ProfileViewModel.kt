@@ -63,7 +63,10 @@ class ProfileViewModel(
                                 email = user.email,
                                 address = user.address,
                                 avatarInitials = initials,
-                                rewardPoints = user.rewardPoints
+                                rewardPoints = user.rewardPoints,
+                                membershipTier = user.membershipTier,
+                                pointsToNextTier = user.pointsToNextTier,
+                                tierProgress = user.tierProgress
                             )
                         }
                     }
@@ -84,13 +87,11 @@ class ProfileViewModel(
             try {
                 orderRepository.getOrderHistory().collect { orders ->
                     val totalSpent = orders.sumOf { it.totalPrice }
-                    val loyaltyTier = LoyaltyTier.fromTotalSpent(totalSpent)
 
                     _uiState.update { state ->
                         state.copy(
                             orderHistory = orders,
                             totalSpent = totalSpent,
-                            loyaltyTier = loyaltyTier,
                             isLoadingOrders = false
                         )
                     }

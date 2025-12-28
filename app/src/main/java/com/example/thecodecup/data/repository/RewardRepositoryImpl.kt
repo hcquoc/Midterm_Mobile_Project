@@ -23,23 +23,28 @@ class RewardRepositoryImpl(
 
     private val _availableRewards = MutableStateFlow(
         listOf(
-            Reward(1, "Cafe Latte", "Valid until 04.07.21", 1340),
-            Reward(2, "Flat White", "Valid until 04.07.21", 1340),
-            Reward(3, "Cappuccino", "Valid until 04.07.21", 1340),
-            Reward(4, "Americano", "Valid until 04.07.21", 1340)
+            // Đồ uống có thể đổi với 100 điểm (100 ly = 1 phần miễn phí)
+            Reward(1, "Espresso Shot", "Không giới hạn", 100),
+            Reward(2, "Americano", "Không giới hạn", 100),
+            Reward(3, "Cà phê Đen", "Không giới hạn", 100),
+            Reward(4, "Cafe Latte", "Không giới hạn", 100),
+            Reward(5, "Cappuccino", "Không giới hạn", 100),
+            Reward(6, "Cà phê Sữa", "Không giới hạn", 100),
+            Reward(7, "Mocha", "Không giới hạn", 100),
+            Reward(8, "Caramel Macchiato", "Không giới hạn", 100),
+            Reward(9, "Matcha Latte", "Không giới hạn", 100),
+            // Bánh ngọt có thể đổi với 100 điểm
+            Reward(10, "Tiramisu Socola", "Không giới hạn", 100),
+            Reward(11, "Mousse", "Không giới hạn", 100),
+            Reward(12, "Cupcake", "Không giới hạn", 100),
+            Reward(13, "Pudding", "Không giới hạn", 100),
+            Reward(14, "Combo Bánh Mì", "Không giới hạn", 100)
         )
     )
 
-    private val _rewardHistory = MutableStateFlow(
-        listOf(
-            RewardHistory(1, "Americano", 12, "24 June | 12:30 PM", RewardType.EARNED),
-            RewardHistory(2, "Cafe Latte", 12, "22 June | 08:30 AM", RewardType.EARNED),
-            RewardHistory(3, "Green Tea Latte", 12, "16 June | 10:48 AM", RewardType.EARNED),
-            RewardHistory(4, "Flat White", 12, "12 May | 11:25 AM", RewardType.EARNED)
-        )
-    )
+    private val _rewardHistory = MutableStateFlow<List<RewardHistory>>(emptyList())
 
-    private var nextHistoryId = 5
+    private var nextHistoryId = 1
 
     override fun observeAvailableRewards(): Flow<List<Reward>> = _availableRewards.asStateFlow()
 

@@ -28,6 +28,7 @@ import com.example.thecodecup.domain.usecase.order.GetOngoingOrdersUseCase
 import com.example.thecodecup.domain.usecase.order.GetOrderByIdUseCase
 import com.example.thecodecup.domain.usecase.order.GetOrderHistoryUseCase
 import com.example.thecodecup.domain.usecase.order.PlaceOrderUseCase
+import com.example.thecodecup.domain.usecase.recommendation.GetRecommendationsUseCase
 import com.example.thecodecup.domain.usecase.user.GetCurrentUserUseCase
 import com.example.thecodecup.domain.usecase.user.UpdateUserProfileUseCase
 
@@ -77,6 +78,9 @@ object ServiceLocator {
     private var getOngoingOrdersUseCase: GetOngoingOrdersUseCase? = null
     private var getOrderByIdUseCase: GetOrderByIdUseCase? = null
     private var cancelOrderUseCase: CancelOrderUseCase? = null
+
+    // Use case instances - Recommendation
+    private var getRecommendationsUseCase: GetRecommendationsUseCase? = null
 
     /**
      * Initialize the ServiceLocator with application context
@@ -304,6 +308,16 @@ object ServiceLocator {
         }
     }
 
+    // ==================== Use Cases - Recommendation ====================
+
+    fun provideGetRecommendationsUseCase(): GetRecommendationsUseCase {
+        return getRecommendationsUseCase ?: GetRecommendationsUseCase(
+            coffeeRepository = provideCoffeeRepository()
+        ).also {
+            getRecommendationsUseCase = it
+        }
+    }
+
     /**
      * Reset all instances (useful for testing)
      */
@@ -337,5 +351,7 @@ object ServiceLocator {
         getOngoingOrdersUseCase = null
         getOrderByIdUseCase = null
         cancelOrderUseCase = null
+        // Recommendation use cases
+        getRecommendationsUseCase = null
     }
 }

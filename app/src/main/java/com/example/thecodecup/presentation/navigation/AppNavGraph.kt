@@ -143,6 +143,15 @@ fun AppNavGraph(
                     navController.navigate(Routes.orderSuccessRoute(orderId)) {
                         popUpTo(Routes.HOME)
                     }
+                },
+                onCoffeeClick = { coffee ->
+                    // Navigate to detail screen when clicking on recommendation
+                    try {
+                        val route = Routes.detailRoute(coffee.id, coffee.name)
+                        navController.navigate(route)
+                    } catch (e: Exception) {
+                        android.util.Log.e("AppNavGraph", "Recommendation navigation error", e)
+                    }
                 }
             )
         }

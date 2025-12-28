@@ -15,5 +15,6 @@ data class UserEntity(
     val phoneNumber: String = "",
     val avatarUrl: String? = null,
     val loyaltyStamps: Int = 0,  // Tracks the 8 cups, max 8
-    val loyaltyPoints: Int = 0   // Tracks the total points
+    val loyaltyPoints: Int = 100,   // Tracks the total points, default 100 for new users
+    val voucherCount: Int = 0  // Number of 2,000 VND vouchers accumulated
 )

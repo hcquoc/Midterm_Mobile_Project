@@ -15,7 +15,8 @@ class HomeViewModelFactory : ViewModelProvider.Factory {
             return try {
                 HomeViewModel(
                     getCoffeeMenuUseCase = ServiceLocator.provideGetCoffeeMenuUseCase(),
-                    getCurrentUserUseCase = ServiceLocator.provideGetCurrentUserUseCase()
+                    getCurrentUserUseCase = ServiceLocator.provideGetCurrentUserUseCase(),
+                    addToCartUseCase = ServiceLocator.provideAddToCartUseCase()
                 ) as T
             } catch (e: Exception) {
                 android.util.Log.e("HomeViewModelFactory", "Error creating HomeViewModel", e)

@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -12,6 +13,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Receipt
@@ -19,9 +22,12 @@ import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.thecodecup.domain.model.Coffee
+import com.example.thecodecup.domain.model.CoffeeCategory
 import com.example.thecodecup.presentation.theme.TheCodeCupTheme
 import com.example.thecodecup.presentation.components.colors.AppColors
 import com.example.thecodecup.presentation.utils.PriceFormatter
@@ -59,6 +66,14 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel(factory = HomeViewModelFactory())
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    // Handle navigation to cart after adding item
+    LaunchedEffect(uiState.navigateToCart) {
+        if (uiState.navigateToCart) {
+            onCartClick()
+            viewModel.onEvent(HomeUiEvent.NavigateToCartHandled)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -81,19 +96,30 @@ fun HomeScreen(
             onProfileClick = onProfileClick
         )
 
-        // Loyalty Card Section
-        LoyaltyCardSection(
+        // Compact Loyalty Card Section
+        CompactLoyaltyCardSection(
             currentPoints = uiState.loyaltyStamps,
             maxPoints = uiState.maxLoyaltyStamps
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Coffee Selection Section (Scrollable)
         PremiumCoffeeSelectionSection(
-            coffeeList = uiState.coffeeList,
+            coffeeList = uiState.filteredCoffeeList.ifEmpty { uiState.coffeeList },
+            searchQuery = uiState.searchQuery,
+            onSearchQueryChanged = { query ->
+                viewModel.onEvent(HomeUiEvent.SearchQueryChanged(query))
+            },
+            selectedCategory = uiState.selectedCategory,
+            categories = uiState.categories,
+            onCategoryChanged = { category ->
+                viewModel.onEvent(HomeUiEvent.CategoryChanged(category))
+            },
             onCoffeeClick = onCoffeeClick,
-            onAddToCartClick = onAddToCartClick,
+            onAddToCartClick = { coffee ->
+                viewModel.onEvent(HomeUiEvent.AddToCartAndNavigate(coffee))
+            },
             modifier = Modifier.weight(1f)
         )
 
@@ -229,42 +255,168 @@ fun LoyaltyCardSection(
 }
 
 /**
- * Premium Coffee Selection with polished cards
+ * Compact Loyalty Card for HomeScreen - smaller to save space
+ */
+@Composable
+fun CompactLoyaltyCardSection(
+    currentPoints: Int,
+    maxPoints: Int
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = AppColors.LoyaltyCard)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Left: Title and progress
+            Column {
+                Text(
+                    text = "Loyalty Card",
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = "$currentPoints / $maxPoints stamps",
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 11.sp
+                )
+            }
+
+            // Right: Compact stamps row
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                repeat(maxPoints) { index ->
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(
+                                if (index < currentPoints) AppColors.Secondary
+                                else Color.White.copy(alpha = 0.3f)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "☕",
+                            fontSize = 10.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Premium Coffee Selection with polished cards, search bar, and category filters
  */
 @Composable
 fun PremiumCoffeeSelectionSection(
     coffeeList: List<Coffee>,
+    searchQuery: String = "",
+    onSearchQueryChanged: (String) -> Unit = {},
+    selectedCategory: CoffeeCategory = CoffeeCategory.ALL,
+    categories: List<CoffeeCategory> = CoffeeCategory.entries,
+    onCategoryChanged: (CoffeeCategory) -> Unit = {},
     onCoffeeClick: (Coffee) -> Unit,
     onAddToCartClick: (Coffee) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         color = AppColors.Background,
         shadowElevation = 8.dp
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 24.dp, start = 20.dp, end = 20.dp)
+                .padding(top = 16.dp, start = 16.dp, end = 16.dp)
         ) {
-            // Section Header
-            Text(
-                text = "Choose your coffee",
-                color = AppColors.Primary,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-0.3).sp,
-                modifier = Modifier.padding(bottom = 16.dp, start = 4.dp)
+            // Compact Search Bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChanged,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                placeholder = {
+                    Text(
+                        text = "Tìm kiếm...",
+                        color = AppColors.TextSecondary,
+                        fontSize = 14.sp
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = AppColors.Primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(
+                            onClick = { onSearchQueryChanged("") },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Clear,
+                                contentDescription = "Clear search",
+                                tint = AppColors.TextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                },
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = AppColors.Primary,
+                    unfocusedBorderColor = AppColors.Divider,
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    cursorColor = AppColors.Primary
+                ),
+                singleLine = true,
+                textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp)
             )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Compact Category Filter Chips
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(bottom = 10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(categories.size) { index ->
+                    val category = categories[index]
+                    CompactCategoryFilterChip(
+                        category = category,
+                        isSelected = category == selectedCategory,
+                        onClick = { onCategoryChanged(category) }
+                    )
+                }
+            }
 
             // Coffee Grid
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(bottom = 12.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(coffeeList) { coffee ->
@@ -276,6 +428,42 @@ fun PremiumCoffeeSelectionSection(
                 }
             }
         }
+    }
+}
+
+/**
+ * Compact Category Filter Chip
+ */
+@Composable
+fun CompactCategoryFilterChip(
+    category: CoffeeCategory,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+
+    Surface(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(bounded = true),
+                onClick = onClick
+            ),
+        shape = RoundedCornerShape(16.dp),
+        color = if (isSelected) AppColors.Primary else Color.White,
+        border = if (isSelected) null else androidx.compose.foundation.BorderStroke(
+            1.dp,
+            AppColors.Divider
+        )
+    ) {
+        Text(
+            text = category.displayName,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            color = if (isSelected) Color.White else AppColors.TextPrimary,
+            fontSize = 12.sp,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+        )
     }
 }
 

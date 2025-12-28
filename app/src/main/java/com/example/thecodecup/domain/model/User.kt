@@ -3,6 +3,29 @@ package com.example.thecodecup.domain.model
 import java.util.Locale
 
 /**
+ * Membership Tier enum
+ * - Silver: 0-999 points (1x multiplier)
+ * - Gold: 1000+ points (1.5x multiplier)
+ */
+enum class MembershipTier(
+    val displayName: String,
+    val multiplier: Double,
+    val minPoints: Int
+) {
+    SILVER("Silver", 1.0, 0),
+    GOLD("Gold", 1.5, 1000);
+
+    companion object {
+        fun fromPoints(points: Int): MembershipTier {
+            return when {
+                points >= GOLD.minPoints -> GOLD
+                else -> SILVER
+            }
+        }
+    }
+}
+
+/**
  * Domain model for User
  */
 data class User(
@@ -13,9 +36,42 @@ data class User(
     val address: String = "3 Addersion Court\nChino Hills, HO56824, United State",
     val loyaltyStamps: Int = 0,
     val maxLoyaltyStamps: Int = 8,
-    val rewardPoints: Int = 0,
-    val maxRewardPoints: Int = 5000
+    val rewardPoints: Int = 0,  // Start with 0 points
+    val maxRewardPoints: Int = 100  // 100 points = 1 free coffee
 ) {
+    /**
+     * Get current membership tier based on total points
+     */
+    val membershipTier: MembershipTier
+        get() = MembershipTier.fromPoints(rewardPoints)
+
+    /**
+     * Get points multiplier based on current tier
+     */
+    val pointsMultiplier: Double
+        get() = membershipTier.multiplier
+
+    /**
+     * Points needed to reach next tier (Gold)
+     * Returns 0 if already Gold
+     */
+    val pointsToNextTier: Int
+        get() = if (membershipTier == MembershipTier.GOLD) {
+            0
+        } else {
+            MembershipTier.GOLD.minPoints - rewardPoints
+        }
+
+    /**
+     * Progress to next tier (0.0 to 1.0)
+     */
+    val tierProgress: Float
+        get() = if (membershipTier == MembershipTier.GOLD) {
+            1f
+        } else {
+            (rewardPoints.toFloat() / MembershipTier.GOLD.minPoints).coerceIn(0f, 1f)
+        }
+
     /**
      * Check if loyalty card is full
      */
