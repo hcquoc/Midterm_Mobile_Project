@@ -66,5 +66,23 @@ class UserRepositoryImpl : UserRepository {
             false
         }
     }
+
+    override suspend fun addVoucher() {
+        _user.update { it.copy(voucherCount = it.voucherCount + 1) }
+    }
+
+    override suspend fun useVoucher(): Boolean {
+        val currentVouchers = _user.value.voucherCount
+        return if (currentVouchers > 0) {
+            _user.update { it.copy(voucherCount = it.voucherCount - 1) }
+            true
+        } else {
+            false
+        }
+    }
+
+    override suspend fun getVoucherCount(): Int {
+        return _user.value.voucherCount
+    }
 }
 

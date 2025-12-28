@@ -27,6 +27,8 @@ class PlaceOrderUseCase(
     companion object {
         /** Conversion rate: 1 Point = 100 VND */
         const val POINTS_TO_VND_RATE = 100.0
+            /** Voucher value: 1 Voucher = 2,000 VND */
+        const val VOUCHER_VALUE = 2000.0
     }
 
     /**
@@ -36,8 +38,11 @@ class PlaceOrderUseCase(
         val order: Order,
         val pointsEarned: Int,
         val pointsUsed: Int = 0,
-        val discountAmount: Double = 0.0
+        val discountAmount: Double = 0.0,
+        val voucherUsed: Boolean = false,
+        val voucherDiscount: Double = 0.0
     )
+
 
     /**
      * Execute the use case to place an order
@@ -46,13 +51,15 @@ class PlaceOrderUseCase(
      * @param deliveryAddress Optional delivery address (if null, uses user's default address)
      * @param usePoints Whether to use points for discount
      * @param pointsToUse Number of points to use (if usePoints is true)
+     * @param useVoucher Whether to use a voucher for discount (1 voucher = 2,000 VND)
      * @return DomainResult containing PlaceOrderResult or error
      */
     suspend operator fun invoke(
         note: String? = null,
         deliveryAddress: String? = null,
         usePoints: Boolean = false,
-        pointsToUse: Int = 0
+        pointsToUse: Int = 0,
+        useVoucher: Boolean = false
     ): DomainResult<PlaceOrderResult> {
         return try {
             // Step 1: Get current cart
@@ -103,30 +110,52 @@ class PlaceOrderUseCase(
                 actualPointsUsed = (discountAmount / POINTS_TO_VND_RATE).toInt()
             }
 
-            // Step 4: Create order via repository
+            // Step 4: Validate voucher if used
+            var actualVoucherUsed = false
+            var voucherDiscountAmount = 0.0
+
+            if (useVoucher) {
+                if (currentUser.voucherCount <= 0) {
+                    return DomainResult.Error(
+                        DomainException.ValidationException(
+                            message = "No vouchers available.",
+                            field = "voucher"
+                        )
+                    )
+                }
+                actualVoucherUsed = true
+                voucherDiscountAmount = VOUCHER_VALUE
+            }
+
+            // Step 5: Create order via repository
             val order = orderRepository.createOrder(cart, address)
 
-            // Step 5: Clear the cart
+            // Step 6: Clear the cart
             cartRepository.clearCart()
 
-            // Step 6: Deduct points if used
+            // Step 7: Deduct points if used
             if (actualPointsUsed > 0) {
                 userRepository.useRewardPoints(actualPointsUsed)
             }
 
-            // Step 7: Calculate loyalty points with tier multiplier
+            // Step 8: Deduct voucher if used
+            if (actualVoucherUsed) {
+                userRepository.useVoucher()
+            }
+
+            // Step 9: Calculate loyalty points with tier multiplier
             // Base points: 1 point per item
             val basePointsEarned = calculateBasePoints(cart)
             // Apply tier multiplier (Silver 1x, Gold 1.5x)
             val multiplier = currentUser.pointsMultiplier
             val pointsEarned = (basePointsEarned * multiplier).roundToInt()
 
-            // Step 8: Add earned points to user
+            // Step 10: Add earned points to user
             if (pointsEarned > 0) {
                 userRepository.addRewardPoints(pointsEarned)
             }
 
-            // Step 9: Add loyalty stamp for each item purchased
+            // Step 11: Add loyalty stamp for each item purchased
             cart.items.forEach { _ ->
                 userRepository.addLoyaltyStamp()
             }
@@ -137,7 +166,9 @@ class PlaceOrderUseCase(
                     order = order,
                     pointsEarned = pointsEarned,
                     pointsUsed = actualPointsUsed,
-                    discountAmount = discountAmount
+                    discountAmount = discountAmount,
+                    voucherUsed = actualVoucherUsed,
+                    voucherDiscount = voucherDiscountAmount
                 )
             )
 

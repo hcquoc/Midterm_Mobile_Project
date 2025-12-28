@@ -67,8 +67,9 @@ fun RewardsScreen(
     // Handle stamps redeem success
     LaunchedEffect(uiState.redeemStampsSuccess) {
         if (uiState.redeemStampsSuccess) {
+            val message = uiState.redeemStampsMessage ?: "🎉 Đổi tem thành công! Bạn nhận được 1 Voucher 2K!"
             snackbarHostState.showSnackbar(
-                message = "🎉 Đổi tem thành công! Thưởng thức ly cà phê miễn phí!",
+                message = "🎟️ $message",
                 duration = SnackbarDuration.Short
             )
             viewModel.onEvent(RewardsUiEvent.ConsumeRedeemStampsSuccess)
@@ -149,6 +150,11 @@ fun RewardsScreen(
                         onLoyaltyCardClick()
                     }
                 )
+            }
+
+            // Voucher Wallet Section
+            item {
+                VoucherWalletCard(voucherCount = uiState.voucherCount)
             }
 
             // Available Rewards Section - User picks which reward to redeem
@@ -1166,6 +1172,98 @@ fun EmptyRewardsPlaceholder() {
                 color = AppColors.TextSecondary,
                 textAlign = TextAlign.Center
             )
+        }
+    }
+}
+
+/**
+ * Voucher Wallet Card - Shows accumulated vouchers
+ * Each voucher is worth 2,000 VND
+ */
+@Composable
+fun VoucherWalletCard(voucherCount: Int) {
+    val totalValue = voucherCount * 2000
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (voucherCount > 0) AppColors.Success.copy(alpha = 0.1f) else AppColors.LightBackground
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Voucher Icon
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (voucherCount > 0) AppColors.Success.copy(alpha = 0.2f)
+                            else AppColors.GrayText.copy(alpha = 0.1f)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ConfirmationNumber,
+                        contentDescription = null,
+                        tint = if (voucherCount > 0) AppColors.Success else AppColors.GrayText,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+
+                Column {
+                    Text(
+                        text = "Ví Voucher",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = AppColors.Primary
+                    )
+                    Text(
+                        text = if (voucherCount > 0) "Đổi 8 tem = 1 voucher 2K" else "Chưa có voucher",
+                        fontSize = 12.sp,
+                        color = AppColors.GrayText
+                    )
+                }
+            }
+
+            // Voucher count and value
+            Column(horizontalAlignment = Alignment.End) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "$voucherCount",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (voucherCount > 0) AppColors.Success else AppColors.GrayText
+                    )
+                    Text(
+                        text = "voucher",
+                        fontSize = 14.sp,
+                        color = AppColors.GrayText
+                    )
+                }
+                if (voucherCount > 0) {
+                    Text(
+                        text = "= ${String.format("%,d", totalValue)}đ",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = AppColors.Success
+                    )
+                }
+            }
         }
     }
 }

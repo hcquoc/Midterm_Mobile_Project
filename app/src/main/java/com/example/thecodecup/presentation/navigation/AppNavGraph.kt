@@ -17,6 +17,7 @@ import com.example.thecodecup.presentation.detail.DetailScreen
 import com.example.thecodecup.presentation.home.HomeScreen
 import com.example.thecodecup.presentation.order.MyOrderScreen
 import com.example.thecodecup.presentation.order.OrderSuccessScreen
+import com.example.thecodecup.presentation.order.OrderTrackingScreen
 import com.example.thecodecup.presentation.profile.ProfileScreen
 import com.example.thecodecup.presentation.rewards.RedeemScreen
 import com.example.thecodecup.presentation.rewards.RewardsScreen
@@ -30,6 +31,7 @@ object Routes {
     const val DETAIL = "detail/{coffeeId}/{coffeeName}"
     const val CART = "cart"
     const val ORDER_SUCCESS = "order_success/{orderId}"
+    const val ORDER_TRACKING = "order_tracking/{orderId}"
     const val PROFILE = "profile"
     const val REWARDS = "rewards"
     const val REDEEM = "redeem"
@@ -42,6 +44,10 @@ object Routes {
 
     fun orderSuccessRoute(orderId: String): String {
         return "order_success/$orderId"
+    }
+
+    fun orderTrackingRoute(orderId: String): String {
+        return "order_tracking/$orderId"
     }
 }
 
@@ -167,9 +173,26 @@ fun AppNavGraph(
             OrderSuccessScreen(
                 orderId = orderId,
                 onTrackOrder = {
-                    navController.navigate(Routes.MY_ORDERS) {
+                    // Navigate to Order Tracking Screen
+                    navController.navigate(Routes.orderTrackingRoute(orderId)) {
                         popUpTo(Routes.HOME)
                     }
+                }
+            )
+        }
+
+        // Order Tracking Screen
+        composable(
+            route = Routes.ORDER_TRACKING,
+            arguments = listOf(
+                navArgument("orderId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+            OrderTrackingScreen(
+                orderId = orderId,
+                onBackClick = {
+                    navController.popBackStack()
                 }
             )
         }

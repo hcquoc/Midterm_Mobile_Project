@@ -80,6 +80,7 @@ class RewardsViewModel(
                                 rewardPointsProgress = user.rewardPointsProgress,
                                 rewardPointsDisplay = user.rewardPointsDisplay,
                                 formattedRewardPoints = user.formattedRewardPoints,
+                                voucherCount = user.voucherCount,
                                 isLoading = false
                             )
                         }
@@ -243,6 +244,7 @@ class RewardsViewModel(
 
     /**
      * Redeem loyalty stamps when user has 8 stamps
+     * Gives user a 2,000 VND voucher
      */
     private fun redeemStamps() {
         viewModelScope.launch {
@@ -264,18 +266,26 @@ class RewardsViewModel(
                 // Reset stamps to 0
                 userRepository.resetLoyaltyStamps()
 
-                // Add to reward history
-                rewardRepository.addEarnedPoints("Free Coffee (Thẻ Loyalty)", 0)
+                // Add a voucher (worth 2,000 VND)
+                userRepository.addVoucher()
 
-                Log.d(TAG, "Successfully redeemed loyalty stamps")
+                // Get new voucher count
+                val newVoucherCount = userRepository.getVoucherCount()
+
+                // Add to reward history
+                rewardRepository.addEarnedPoints("Voucher 2K (Đổi 8 tem)", 0)
+
+                Log.d(TAG, "Successfully redeemed loyalty stamps for a voucher. Total vouchers: $newVoucherCount")
 
                 _uiState.update { state ->
                     state.copy(
                         isRedeeming = false,
                         redeemStampsSuccess = true,
+                        redeemStampsMessage = "Bạn nhận được 1 Voucher 2K! Tổng voucher: $newVoucherCount",
                         loyaltyStamps = 0,
                         loyaltyProgress = 0f,
-                        loyaltyStampsDisplay = "0/$maxStamps"
+                        loyaltyStampsDisplay = "0/$maxStamps",
+                        voucherCount = newVoucherCount
                     )
                 }
             } catch (e: Exception) {
@@ -291,7 +301,7 @@ class RewardsViewModel(
     }
 
     private fun consumeRedeemStampsSuccess() {
-        _uiState.update { it.copy(redeemStampsSuccess = false) }
+        _uiState.update { it.copy(redeemStampsSuccess = false, redeemStampsMessage = null) }
     }
 
     private fun consumeRedeemSuccess() {

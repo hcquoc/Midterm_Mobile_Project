@@ -63,6 +63,7 @@ class CartViewModel(
             is CartUiEvent.ClearError -> clearError()
             is CartUiEvent.NavigateBack -> { /* Handled by screen */ }
             is CartUiEvent.ToggleUsePoints -> toggleUsePoints(event.usePoints)
+            is CartUiEvent.ToggleVoucher -> toggleVoucher(event.apply)
         }
     }
 
@@ -138,6 +139,33 @@ class CartViewModel(
             calculatePointsDiscount()
         } else {
             _uiState.update { it.copy(pointsDiscount = 0.0, pointsToUse = 0) }
+        }
+    }
+
+    /**
+     * Toggle voucher application
+     * Each voucher = 2,000 VND discount
+     * Only 1 voucher can be applied per order
+     */
+    private fun toggleVoucher(apply: Boolean) {
+        val state = _uiState.value
+
+        // Can only apply if user has vouchers available
+        if (apply && state.availableVouchers <= 0) {
+            return
+        }
+
+        val voucherDiscount = if (apply && state.availableVouchers > 0) {
+            CartUiState.VOUCHER_VALUE
+        } else {
+            0.0
+        }
+
+        _uiState.update {
+            it.copy(
+                isVoucherApplied = apply && state.availableVouchers > 0,
+                voucherDiscount = voucherDiscount
+            )
         }
     }
 
@@ -236,7 +264,8 @@ class CartViewModel(
                 note = note,
                 deliveryAddress = address,
                 usePoints = state.usePoints,
-                pointsToUse = state.pointsToUse
+                pointsToUse = state.pointsToUse,
+                useVoucher = state.isVoucherApplied && state.availableVouchers > 0
             )
 
             when (result) {
@@ -250,7 +279,10 @@ class CartViewModel(
                             // Reset points usage after order
                             usePoints = false,
                             pointsDiscount = 0.0,
-                            pointsToUse = 0
+                            pointsToUse = 0,
+                            // Reset voucher usage after order
+                            isVoucherApplied = false,
+                            voucherDiscount = 0.0
                         )
                     }
                 }

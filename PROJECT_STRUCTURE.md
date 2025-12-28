@@ -172,8 +172,9 @@ sealed class DomainResult<out T> {
 - **CartItem**: id, coffee, options, quantity + unitPrice, totalPrice
 - **Cart**: items + totalPrice, itemCount, isEmpty
 - **Order**: id, items, totalPrice, status, address, createdAt
-- **User**: id, name, phone, email, address, loyaltyStamps, rewardPoints, membershipTier
+- **User**: id, name, phone, email, address, loyaltyStamps, rewardPoints, membershipTier, voucherCount
 - **MembershipTier**: SILVER (0-999 pts, x1), GOLD (1000+ pts, x1.5)
+- **Voucher System**: Each voucher = 2,000 VND, earned by redeeming 8 loyalty stamps
 - **Reward**: id, coffeeName, validUntil, pointsRequired, isRedeemed
 
 ## Data Layer
@@ -321,6 +322,8 @@ implementation(libs.gson)
 - **Membership Tiers**: Silver (0-999 pts, x1 multiplier), Gold (1000+ pts, x1.5 multiplier)
 - **Pay with Points**: 1 điểm = 100 VND, có thể dùng điểm để giảm giá đơn hàng
 - **Loyalty Points**: 1 sản phẩm = 1 điểm cơ bản (nhân với tier multiplier)
+- **Voucher System**: Đổi 8 tem loyalty = 1 voucher 2,000 VND, có thể tích lũy nhiều voucher
+- **Apply Voucher in Cart**: 1 voucher = 2,000 VND giảm giá, tối đa 1 voucher/đơn hàng
 
 ## ViewModel Pattern
 

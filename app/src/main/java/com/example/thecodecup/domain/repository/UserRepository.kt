@@ -62,5 +62,20 @@ interface UserRepository {
      * Use reward points (returns false if not enough points)
      */
     suspend fun useRewardPoints(points: Int): Boolean
+
+    /**
+     * Add a voucher (each voucher is worth 2,000 VND)
+     */
+    suspend fun addVoucher()
+
+    /**
+     * Use a voucher (returns false if no vouchers available)
+     */
+    suspend fun useVoucher(): Boolean
+
+    /**
+     * Get current voucher count
+     */
+    suspend fun getVoucherCount(): Int
 }
 

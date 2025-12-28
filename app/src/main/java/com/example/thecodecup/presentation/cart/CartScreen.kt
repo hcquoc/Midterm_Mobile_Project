@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocalCafe
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -74,6 +75,13 @@ fun CartScreen(
                     finalTotal = uiState.finalTotal,
                     onToggleUsePoints = { usePoints ->
                         viewModel.onEvent(CartUiEvent.ToggleUsePoints(usePoints))
+                    },
+                    // Voucher
+                    availableVouchers = uiState.availableVouchers,
+                    isVoucherApplied = uiState.isVoucherApplied,
+                    voucherDiscount = uiState.voucherDiscount,
+                    onToggleVoucher = { apply ->
+                        viewModel.onEvent(CartUiEvent.ToggleVoucher(apply))
                     },
                     onCheckout = {
                         viewModel.onEvent(CartUiEvent.PlaceOrder())
@@ -342,6 +350,11 @@ fun CartBottomBar(
     pointsDiscount: Double = 0.0,
     finalTotal: Double = totalPrice,
     onToggleUsePoints: (Boolean) -> Unit = {},
+    // Voucher props
+    availableVouchers: Int = 0,
+    isVoucherApplied: Boolean = false,
+    voucherDiscount: Double = 0.0,
+    onToggleVoucher: (Boolean) -> Unit = {},
     onCheckout: () -> Unit = {}
 ) {
     Surface(
@@ -419,6 +432,35 @@ fun CartBottomBar(
                 }
             }
 
+            // Voucher Section
+            Spacer(modifier = Modifier.height(8.dp))
+            VoucherSection(
+                availableVouchers = availableVouchers,
+                isVoucherApplied = isVoucherApplied,
+                onToggleVoucher = onToggleVoucher
+            )
+
+            // Show voucher discount if applied
+            if (isVoucherApplied && voucherDiscount > 0) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Voucher giảm giá",
+                        fontSize = 11.sp,
+                        color = AppColors.Error
+                    )
+                    Text(
+                        text = "-${PriceFormatter.formatVND(voucherDiscount)}",
+                        fontSize = 11.sp,
+                        color = AppColors.Error,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(6.dp))
             HorizontalDivider(color = AppColors.Divider, thickness = 1.dp)
             Spacer(modifier = Modifier.height(6.dp))
@@ -480,6 +522,70 @@ fun CartBottomBar(
                 )
             }
             }
+        }
+    }
+}
+
+/**
+ * Voucher Section - Checkbox để áp dụng voucher giảm giá
+ */
+@Composable
+fun VoucherSection(
+    availableVouchers: Int,
+    isVoucherApplied: Boolean,
+    onToggleVoucher: (Boolean) -> Unit
+) {
+    val canApply = availableVouchers > 0
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = if (isVoucherApplied) AppColors.Error.copy(alpha = 0.1f) else AppColors.LightBackground
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ConfirmationNumber,
+                    contentDescription = null,
+                    tint = if (canApply) AppColors.Error else AppColors.GrayText,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(
+                        text = if (canApply) "Áp dụng Voucher 2K" else "Chưa có voucher",
+                        fontSize = 12.sp,
+                        color = if (isVoucherApplied) AppColors.Error else AppColors.TextPrimary,
+                        fontWeight = if (isVoucherApplied) FontWeight.Medium else FontWeight.Normal
+                    )
+                    Text(
+                        text = "Voucher khả dụng: $availableVouchers",
+                        fontSize = 10.sp,
+                        color = AppColors.GrayText
+                    )
+                }
+            }
+            Checkbox(
+                checked = isVoucherApplied,
+                onCheckedChange = { onToggleVoucher(it) },
+                enabled = canApply,
+                colors = CheckboxDefaults.colors(
+                    checkedColor = AppColors.Error,
+                    uncheckedColor = AppColors.GrayText,
+                    checkmarkColor = Color.White,
+                    disabledCheckedColor = AppColors.GrayText,
+                    disabledUncheckedColor = AppColors.GrayText.copy(alpha = 0.5f)
+                )
+            )
         }
     }
 }

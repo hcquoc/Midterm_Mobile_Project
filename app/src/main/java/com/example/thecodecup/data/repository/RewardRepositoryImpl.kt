@@ -23,22 +23,20 @@ class RewardRepositoryImpl(
 
     private val _availableRewards = MutableStateFlow(
         listOf(
-            // Đồ uống có thể đổi với 100 điểm (100 ly = 1 phần miễn phí)
-            Reward(1, "Espresso Shot", "Không giới hạn", 100),
-            Reward(2, "Americano", "Không giới hạn", 100),
-            Reward(3, "Cà phê Đen", "Không giới hạn", 100),
-            Reward(4, "Cafe Latte", "Không giới hạn", 100),
-            Reward(5, "Cappuccino", "Không giới hạn", 100),
-            Reward(6, "Cà phê Sữa", "Không giới hạn", 100),
-            Reward(7, "Mocha", "Không giới hạn", 100),
-            Reward(8, "Caramel Macchiato", "Không giới hạn", 100),
-            Reward(9, "Matcha Latte", "Không giới hạn", 100),
-            // Bánh ngọt có thể đổi với 100 điểm
-            Reward(10, "Tiramisu Socola", "Không giới hạn", 100),
-            Reward(11, "Mousse", "Không giới hạn", 100),
-            Reward(12, "Cupcake", "Không giới hạn", 100),
-            Reward(13, "Pudding", "Không giới hạn", 100),
-            Reward(14, "Combo Bánh Mì", "Không giới hạn", 100)
+            // Đồ uống có thể đổi với 50 điểm (món từ 50,000 VND trở xuống)
+            Reward(1, "Espresso Shot", "Không giới hạn", 50),        // 35,000 VND
+            Reward(2, "Americano", "Không giới hạn", 50),             // 40,000 VND
+            Reward(3, "Cà phê Đen", "Không giới hạn", 50),            // 29,000 VND
+            Reward(4, "Cà phê Sữa", "Không giới hạn", 50),            // 35,000 VND
+            Reward(5, "Bạc Sỉu", "Không giới hạn", 50),               // 32,000 VND
+            Reward(6, "Cappuccino", "Không giới hạn", 50),            // 45,000 VND
+            Reward(7, "Cafe Latte", "Không giới hạn", 50),            // 50,000 VND
+            Reward(8, "Trà Sen", "Không giới hạn", 50),               // 35,000 VND
+            Reward(9, "Trà Đào", "Không giới hạn", 50),               // 40,000 VND
+            // Bánh ngọt có thể đổi với 50 điểm (món từ 50,000 VND trở xuống)
+            Reward(10, "Mousse", "Không giới hạn", 50),               // 45,000 VND
+            Reward(11, "Cupcake", "Không giới hạn", 50),              // 35,000 VND
+            Reward(12, "Pudding", "Không giới hạn", 50)               // 40,000 VND
         )
     )
 
@@ -87,8 +85,11 @@ class RewardRepositoryImpl(
     }
 
     override suspend fun addEarnedPoints(coffeeName: String, points: Int) {
-        // Add points to user
-        userRepository.addRewardPoints(points)
+        // Only add points if positive (earned points)
+        // Negative points are just for history display (redemption already deducted)
+        if (points > 0) {
+            userRepository.addRewardPoints(points)
+        }
 
         // Add to history
         val dateFormat = SimpleDateFormat("dd MMMM | hh:mm a", Locale.US)
@@ -97,7 +98,7 @@ class RewardRepositoryImpl(
             coffeeName = coffeeName,
             points = points,
             date = dateFormat.format(Date()),
-            type = RewardType.EARNED
+            type = if (points >= 0) RewardType.EARNED else RewardType.REDEEMED
         )
 
         _rewardHistory.update { history -> listOf(historyEntry) + history }

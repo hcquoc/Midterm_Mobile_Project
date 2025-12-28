@@ -36,8 +36,9 @@ data class User(
     val address: String = "3 Addersion Court\nChino Hills, HO56824, United State",
     val loyaltyStamps: Int = 0,
     val maxLoyaltyStamps: Int = 8,
-    val rewardPoints: Int = 0,  // Start with 0 points
-    val maxRewardPoints: Int = 100  // 100 points = 1 free coffee
+    val rewardPoints: Int = 50,  // Start with 50 points for demo
+    val maxRewardPoints: Int = 100,  // 100 points max
+    val voucherCount: Int = 0  // Number of 2,000 VND vouchers
 ) {
     /**
      * Get current membership tier based on total points
@@ -139,6 +140,32 @@ data class User(
         } else {
             null
         }
+    }
+
+    /**
+     * Add a voucher (each voucher is worth 2,000 VND)
+     */
+    fun addVoucher(): User = copy(voucherCount = voucherCount + 1)
+
+    /**
+     * Use a voucher (returns null if no vouchers available)
+     */
+    fun useVoucher(): User? {
+        return if (voucherCount > 0) {
+            copy(voucherCount = voucherCount - 1)
+        } else {
+            null
+        }
+    }
+
+    /**
+     * Total voucher value in VND
+     */
+    val totalVoucherValue: Double
+        get() = voucherCount * VOUCHER_VALUE
+
+    companion object {
+        const val VOUCHER_VALUE = 2000.0  // Each voucher is worth 2,000 VND
     }
 }
 
